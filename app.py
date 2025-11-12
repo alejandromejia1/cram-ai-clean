@@ -16,52 +16,38 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Compact, professional CSS
+# Aggressive CSS to override all Streamlit defaults
 st.markdown("""
 <style>
-    .main {
-        padding: 0 !important;
+    /* Reset ALL Streamlit styles */
+    .main .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
+        max-width: 700px !important;
     }
     
-    .stApp {
-        background: #ffffff;
+    /* Force header styles */
+    h1 {
+        color: #000000 !important;
+        font-size: 2.5rem !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        margin-bottom: 0.5rem !important;
     }
     
-    /* Header */
-    .app-header {
-        padding: 2rem 0 1rem 0;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
+    /* Hide ALL Streamlit elements */
+    #MainMenu {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+    .stDeployButton {display: none !important;}
+    header {visibility: hidden !important;}
     
-    .app-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #000000;
-        margin: 0;
-        letter-spacing: -0.02em;
-    }
-    
-    .app-subtitle {
-        font-size: 1.1rem;
-        color: #666666;
-        margin: 0.5rem 0 0 0;
-        font-weight: 400;
-    }
-    
-    /* Main content */
-    .main-content {
-        max-width: 700px;
-        margin: 0 auto;
-        padding: 0 1.5rem;
-    }
-    
-    /* Upload section */
+    /* Upload area styling */
     .upload-section {
         background: #f8f9fa;
         border-radius: 12px;
         padding: 1.5rem;
         margin: 1rem 0;
+        border: 1px solid #e9ecef;
     }
     
     .upload-area {
@@ -77,24 +63,20 @@ st.markdown("""
         border-color: #000000;
     }
     
-    .upload-area-title {
+    .upload-title {
         font-size: 1rem;
         font-weight: 600;
         color: #000000;
         margin: 0 0 0.25rem 0;
     }
     
-    .upload-area-subtitle {
+    .upload-subtitle {
         color: #666666;
         font-size: 0.85rem;
         margin: 0;
     }
     
-    /* Chat interface */
-    .chat-container {
-        margin: 1rem 0;
-    }
-    
+    /* Chat styling */
     .message {
         padding: 0.75rem 1rem;
         margin: 0.5rem 0;
@@ -118,7 +100,7 @@ st.markdown("""
         border-bottom-left-radius: 2px;
     }
     
-    .welcome-state {
+    .welcome-text {
         text-align: center;
         padding: 1.5rem;
         color: #666666;
@@ -132,12 +114,8 @@ st.markdown("""
         align-items: center;
     }
     
-    /* Hide all Streamlit elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
-    header {visibility: hidden;}
-    .stChatInput {
+    /* Chat input */
+    .stChatInput > div > div {
         border: 1px solid #e9ecef !important;
         border-radius: 20px !important;
         padding: 0.75rem 1rem !important;
@@ -145,34 +123,23 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header - Fixed: Title is now properly black
-st.markdown("""
-<div class="app-header">
-    <h1 class="app-title" style="color: #000000 !important;">Cram AI</h1>
-    <p class="app-subtitle">Upload documents and ask questions</p>
-</div>
-""", unsafe_allow_html=True)
-
-# Main content
-st.markdown('<div class="main-content">', unsafe_allow_html=True)
+# Header using Streamlit elements but styled with CSS
+st.markdown("# Cram AI")
+st.markdown("Upload documents and ask questions")
+st.markdown("---")
 
 # Upload section
-st.markdown("""
-<div class="upload-section">
-    <div class="upload-area">
-        <div class="upload-area-title">Add study materials</div>
-        <div class="upload-area-subtitle">PDF, PowerPoint, or images</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# File uploader
-uploaded_files = st.file_uploader(
-    "Upload files",
-    type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
-    accept_multiple_files=True,
-    label_visibility="collapsed"
-)
+with st.container():
+    st.markdown("### Add study materials")
+    st.markdown("PDF, PowerPoint, or images")
+    
+    # File uploader
+    uploaded_files = st.file_uploader(
+        "Upload files",
+        type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
+        accept_multiple_files=True,
+        label_visibility="collapsed"
+    )
 
 # Process uploaded files
 if uploaded_files:
@@ -194,55 +161,42 @@ if uploaded_files:
 if hasattr(rag, 'documents') and rag.documents:
     conversation_history = rag.get_conversation_history()
     
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    
     if conversation_history:
         for conv in conversation_history:
             st.markdown(f'<div class="message user-message">{conv["question"]}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="message assistant-message">{conv["answer"]}</div>', unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div class="welcome-state">
-            Your documents are ready. Ask a question to get started.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="welcome-text">Your documents are ready. Ask a question to get started.</div>', unsafe_allow_html=True)
     
     # Chat input
     if prompt := st.chat_input("Ask a question..."):
         response = rag.query(prompt)
         st.rerun()
     
-    st.markdown('</div>', unsafe_allow_html=True)
-    
     # Document management
     if rag.documents:
-        st.markdown('<div class="controls">', unsafe_allow_html=True)
+        st.markdown("---")
+        col1, col2, col3 = st.columns([2, 1, 1])
         
-        doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
-        selected_doc = st.selectbox(
-            "Document:",
-            options=list(doc_options.keys()),
-            format_func=lambda x: doc_options[x],
-            index=0,
-            label_visibility="collapsed"
-        )
-        rag.switch_document(selected_doc)
+        with col1:
+            doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
+            selected_doc = st.selectbox(
+                "Active document:",
+                options=list(doc_options.keys()),
+                format_func=lambda x: doc_options[x],
+                index=0
+            )
+            rag.switch_document(selected_doc)
         
-        if st.button("Clear chat", use_container_width=True):
-            rag.clear_conversation()
-            st.rerun()
+        with col2:
+            if st.button("Clear chat", use_container_width=True):
+                rag.clear_conversation()
+                st.rerun()
         
-        if st.button("Remove", use_container_width=True):
-            rag.delete_document(selected_doc)
-            st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+        with col3:
+            if st.button("Remove", use_container_width=True):
+                rag.delete_document(selected_doc)
+                st.rerun()
 
 else:
-    st.markdown("""
-    <div class="welcome-state">
-        Upload documents to begin
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="welcome-text">Upload documents to begin</div>', unsafe_allow_html=True)
