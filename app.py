@@ -41,7 +41,7 @@ class FileProcessor:
         if file_type == "application/pdf":
             return FileProcessor.extract_pdf_text(uploaded_file)
         elif file_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-            return FilePDFProcessor.extract_ppt_text(uploaded_file)
+            return FileProcessor.extract_ppt_text(uploaded_file)
         elif file_type.startswith('image'):
             return FileProcessor.extract_image_text(uploaded_file)
         else:
@@ -54,7 +54,7 @@ class SimpleRAG:
         self.current_doc_id = None
         self.client = None
         self.model_name = None
-        self.conversations = {}  # Store conversations per document
+        self.conversations = {}
         
         if 'GROQ_API_KEY' in st.secrets:
             api_key = st.secrets['GROQ_API_KEY']
@@ -93,7 +93,6 @@ class SimpleRAG:
                 'filename': filename,
                 'processed': True
             }
-            # Initialize conversation history for this document
             if doc_id not in self.conversations:
                 self.conversations[doc_id] = []
             
@@ -144,13 +143,13 @@ class SimpleRAG:
             return "Please upload and select a document first."
             
         try:
-            with st.spinner("Finding answer..."):
+            with st.spinner("Thinking..."):
                 # Build conversation context
                 conversation_history = self.get_conversation_history()
                 history_context = ""
                 if conversation_history:
                     history_context = "\n\nPrevious questions and answers:\n"
-                    for i, conv in enumerate(conversation_history[-3:]):  # Last 3 exchanges
+                    for i, conv in enumerate(conversation_history[-3:]):
                         history_context += f"Q: {conv['question']}\nA: {conv['answer']}\n\n"
                 
                 prompt = f"""Based ONLY on the following context:
@@ -170,7 +169,6 @@ Answer based only on the context above:"""
                 )
                 
                 answer = response.choices[0].message.content
-                # Store in conversation history
                 self.add_to_conversation(question, answer)
                 
                 return answer
@@ -178,10 +176,10 @@ Answer based only on the context above:"""
             return f"Error: {str(e)}"
 
 # Main App
-st.set_page_config(page_title="Cram AI", layout="centered")
+st.set_page_config(page_title="Cram AI", layout="wide")
 
 st.title("Cram AI")
-st.markdown("Upload your study materials and get instant answers")
+st.markdown("Upload your study materials and chat with them")
 
 # Initialize RAG system
 if 'rag' not in st.session_state:
@@ -189,117 +187,139 @@ if 'rag' not in st.session_state:
 
 rag = st.session_state.rag
 
-# Initialize conversation counter
-if 'conversation_count' not in st.session_state:
-    st.session_state.conversation_count = 0
-
-# MULTIPLE FILE UPLOAD
-uploaded_files = st.file_uploader(
-    "Upload study materials",
-    type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
-    accept_multiple_files=True,
-    help="Supported: PDF, PowerPoint, Images"
-)
-
-# Process uploaded files
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        # Check if file already exists
-        file_exists = any(doc['filename'] == uploaded_file.name for doc in rag.documents.values())
-        
-        if not file_exists:
-            with st.spinner(f"Processing {uploaded_file.name}..."):
-                text = FileProcessor.process_file(uploaded_file)
-                
-                if text != "Unsupported file type" and len(text.strip()) > 0:
-                    doc_id = str(uuid.uuid4())
-                    rag.add_document(text, doc_id, uploaded_file.name)
-                    st.success(f"✅ {uploaded_file.name} processed")
-                else:
-                    st.error(f"❌ Could not process {uploaded_file.name}")
-
-# FILE MANAGEMENT DASHBOARD
-if rag.is_ready() and rag.documents:
-    st.divider()
-    st.subheader("Your Documents")
+# Sidebar for file management
+with st.sidebar:
+    st.header("📁 Documents")
     
-    # Document selector
-    doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
-    if doc_options:
-        selected_doc = st.selectbox(
-            "Select document to query:",
-            options=list(doc_options.keys()),
-            format_func=lambda x: doc_options[x],
-            index=list(doc_options.keys()).index(rag.current_doc_id) if rag.current_doc_id in doc_options else 0
-        )
-        rag.switch_document(selected_doc)
-        
-        # Show current document info
-        current_doc = rag.documents[selected_doc]
-        st.info(f"📄 Currently viewing: {current_doc['filename']}")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ Clear Conversation", key="clear_conv"):
-                rag.clear_conversation()
-                st.rerun()
-        with col2:
-            if st.button("🗑️ Delete Document", key=f"delete_{selected_doc}"):
-                rag.delete_document(selected_doc)
-                st.rerun()
-
-# Q&A SECTION - MOVE CONVERSATION HISTORY INSIDE THIS SECTION
-if rag.is_ready() and rag.get_current_document():
-    # Show conversation history first
-    conversation_history = rag.get_conversation_history()
-    if conversation_history:
+    # File upload in sidebar
+    uploaded_files = st.file_uploader(
+        "Upload study materials",
+        type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
+        accept_multiple_files=True,
+        help="Supported: PDF, PowerPoint, Images"
+    )
+    
+    # Process uploaded files
+    if uploaded_files:
+        for uploaded_file in uploaded_files:
+            file_exists = any(doc['filename'] == uploaded_file.name for doc in rag.documents.values())
+            
+            if not file_exists:
+                with st.spinner(f"Processing {uploaded_file.name}..."):
+                    text = FileProcessor.process_file(uploaded_file)
+                    
+                    if text != "Unsupported file type" and len(text.strip()) > 0:
+                        doc_id = str(uuid.uuid4())
+                        rag.add_document(text, doc_id, uploaded_file.name)
+                        st.success(f"✅ {uploaded_file.name}")
+                    else:
+                        st.error(f"❌ {uploaded_file.name}")
+    
+    # Document management
+    if rag.documents:
         st.divider()
-        st.subheader("Conversation History")
+        st.subheader("Your Documents")
         
-        for i, conv in enumerate(conversation_history):
-            with st.expander(f"Q: {conv['question'][:50]}...", expanded=(i == len(conversation_history)-1)):
-                st.markdown(f"**Question:** {conv['question']}")
-                st.markdown(f"**Answer:** {conv['answer']}")
+        doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
+        if doc_options:
+            selected_doc = st.selectbox(
+                "Active document:",
+                options=list(doc_options.keys()),
+                format_func=lambda x: doc_options[x],
+                index=list(doc_options.keys()).index(rag.current_doc_id) if rag.current_doc_id in doc_options else 0
+            )
+            rag.switch_document(selected_doc)
+            
+            # Conversation controls
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🗑️ Clear Chat", use_container_width=True):
+                    rag.clear_conversation()
+                    st.rerun()
+            with col2:
+                if st.button("🗑️ Delete Doc", use_container_width=True):
+                    rag.delete_document(selected_doc)
+                    st.rerun()
+
+# Main chat area
+col1, col2 = st.columns([3, 1])
+
+with col1:
+    # Display conversation in chat style
+    if rag.is_ready() and rag.get_current_document():
+        conversation_history = rag.get_conversation_history()
+        
+        # Chat container
+        chat_container = st.container()
+        
+        with chat_container:
+            # Display conversation history
+            for conv in conversation_history:
+                # User message
+                with st.chat_message("user"):
+                    st.write(conv['question'])
+                
+                # Assistant message  
+                with st.chat_message("assistant"):
+                    st.write(conv['answer'])
+            
+            # Current input at bottom (will appear after history)
+            if prompt := st.chat_input("Ask a question about your document..."):
+                # Add user message to chat
+                with st.chat_message("user"):
+                    st.write(prompt)
+                
+                # Get and display assistant response
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = rag.query(prompt)
+                        st.write(response)
+                
+                # Rerun to update the chat
+                st.rerun()
+        
+        # If no conversation yet, show welcome message
+        elif not conversation_history:
+            with st.chat_message("assistant"):
+                st.write("Hi! I'm ready to answer questions about your document. Ask me anything!")
+            
+            if prompt := st.chat_input("Ask a question about your document..."):
+                with st.chat_message("user"):
+                    st.write(prompt)
+                
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = rag.query(prompt)
+                        st.write(response)
+                
+                st.rerun()
     
-    st.divider()
-    st.subheader("Ask Questions")
+    elif rag.is_ready() and not rag.documents:
+        st.info("📁 Upload some documents in the sidebar to get started!")
     
-    question = st.text_input("What would you like to know about your document?", key="question_input")
-    
-    if question:
-        st.session_state.conversation_count += 1
-        answer = rag.query(question)
+    elif not rag.is_ready():
+        st.warning("⚠️ System initializing...")
+
+with col2:
+    st.header("ℹ️ Info")
+    if rag.documents:
+        st.write(f"**Documents:** {len(rag.documents)}")
+        current_conv = rag.get_conversation_history()
+        st.write(f"**Messages:** {len(current_conv)}")
         
-        # Display the latest answer prominently
-        st.markdown("### Latest Answer")
-        st.write(answer)
-        
-        # Auto-refresh to show in conversation history
-        st.rerun()
-        
-elif rag.is_ready() and not rag.documents:
-    st.info("📁 Upload some documents to get started!")
-elif not rag.is_ready():
-    st.warning("⚠️ System initializing...")
+        if rag.get_current_document():
+            doc_name = rag.documents[rag.current_doc_id]['filename']
+            st.write(f"**Active:** {doc_name}")
+    else:
+        st.write("No documents yet")
 
 # Instructions
 with st.expander("How to use Cram AI"):
     st.markdown("""
-    1. **Upload** multiple PDFs, PowerPoints, or images
-    2. **Select** which document to query
-    3. **Ask questions** and see conversation history
-    4. **Continue conversations** with follow-up questions
+    1. **Upload** documents in the sidebar (PDF, PowerPoint, Images)
+    2. **Select** which document to chat with
+    3. **Ask questions** in the chat interface
+    4. **Continue conversations** naturally
     
-    **Supported formats:** PDF, PowerPoint, Images
+    The AI will only answer based on your uploaded documents.
     """)
-
-# Basic analytics
-with st.expander("Developer Info"):
-    st.write(f"📊 Documents loaded: {len(rag.documents)}")
-    if rag.documents:
-        file_types = {}
-        for doc in rag.documents.values():
-            ext = doc['filename'].split('.')[-1].lower()
-            file_types[ext] = file_types.get(ext, 0) + 1
-        st.write(f"📁 File types: {file_types}")
-    st.write(f"💬 Total conversations: {st.session_state.conversation_count}")
