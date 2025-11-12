@@ -253,6 +253,11 @@ with col1:
         chat_container = st.container()
         
         with chat_container:
+            # If no conversation yet, show welcome message
+            if not conversation_history:
+                with st.chat_message("assistant"):
+                    st.write("Hi! I'm ready to answer questions about your document. Ask me anything!")
+            
             # Display conversation history
             for conv in conversation_history:
                 # User message
@@ -263,7 +268,7 @@ with col1:
                 with st.chat_message("assistant"):
                     st.write(conv['answer'])
             
-            # Current input at bottom (will appear after history)
+            # Current input at bottom
             if prompt := st.chat_input("Ask a question about your document..."):
                 # Add user message to chat
                 with st.chat_message("user"):
@@ -276,22 +281,6 @@ with col1:
                         st.write(response)
                 
                 # Rerun to update the chat
-                st.rerun()
-        
-        # If no conversation yet, show welcome message
-        elif not conversation_history:
-            with st.chat_message("assistant"):
-                st.write("Hi! I'm ready to answer questions about your document. Ask me anything!")
-            
-            if prompt := st.chat_input("Ask a question about your document..."):
-                with st.chat_message("user"):
-                    st.write(prompt)
-                
-                with st.chat_message("assistant"):
-                    with st.spinner("Thinking..."):
-                        response = rag.query(prompt)
-                        st.write(response)
-                
                 st.rerun()
     
     elif rag.is_ready() and not rag.documents:
