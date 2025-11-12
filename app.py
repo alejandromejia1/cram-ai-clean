@@ -47,53 +47,54 @@ class FileProcessor:
         else:
             return "Unsupported file type"
 
-# RAG System Class - WITH CURRENT MODEL
+# RAG System Class
 class SimpleRAG:
     def __init__(self):
-        st.write("🔍 DEBUG: Checking Streamlit secrets...")
-        st.write(f"Available secrets: {list(st.secrets.keys())}")
-        
         if 'GROQ_API_KEY' in st.secrets:
             api_key = st.secrets['GROQ_API_KEY']
-            st.write(f"📋 Groq Key found: {api_key[:25]}...")
             
-            # Check if it's placeholder
-            if "your_groq_key" in api_key or "gsk_xxxxxxxx" in api_key:
-                st.error("❌ PLACEHOLDER KEY: Please add your real Groq API key")
-                self.client = None
-                return
-                
             try:
-                st.write("🔄 Testing Groq connection...")
                 self.client = OpenAI(
                     api_key=api_key,
                     base_url="https://api.groq.com/openai/v1"
                 )
-                # Test the connection
+                # List available models and choose one
                 models = self.client.models.list()
-                st.success(f"✅ GROQ CONNECTED! Available models: {len(list(models))}")
+                model_list = [model.id for model in models]
+                
+                # Choose the best available model
+                if "llama-3.1-8b-instant" in model_list:
+                    self.model_name = "llama-3.1-8b-instant"
+                elif "llama3-8b-8192" in model_list:
+                    self.model_name = "llama3-8b-8192"
+                elif "llama3-70b-8192" in model_list:
+                    self.model_name = "llama3-70b-8192"
+                else:
+                    self.model_name = model_list[0] if model_list else None
+                    
                 self.current_document = ""
+                
             except Exception as e:
-                st.error(f"❌ Groq connection failed: {str(e)}")
+                st.error(f"API connection failed: {str(e)}")
                 self.client = None
+                self.model_name = None
         else:
-            st.error("❌ GROQ_API_KEY not found in secrets")
-            st.info("Please add GROQ_API_KEY to Streamlit secrets")
+            st.error("GROQ_API_KEY not found in secrets")
             self.client = None
+            self.model_name = None
     
     def add_document(self, text, doc_id):
         if text and text != "Unsupported file type":
             self.current_document = text
-            st.success("📄 Document loaded successfully!")
     
     def query(self, question):
-        if not self.client:
-            return "System not ready - check API key status above."
+        if not self.client or not self.model_name:
+            return "System not ready - check API key status."
         if not self.current_document:
             return "Please upload a document first."
             
         try:
-            with st.spinner("🤔 Analyzing with Groq..."):
+            with st.spinner("Finding answer..."):
                 prompt = f"""Based ONLY on the following context:
 
 {self.current_document}
@@ -103,19 +104,19 @@ Question: {question}
 Answer based only on the context above:"""
                 
                 response = self.client.chat.completions.create(
-                    model="llama-3.1-8b-instant",  # UPDATED: Current Groq model
+                    model=self.model_name,
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=500,
                     temperature=0.1
                 )
                 return f"**Answer:** {response.choices[0].message.content}"
         except Exception as e:
-            return f"❌ Error during query: {str(e)}"
+            return f"Error: {str(e)}"
 
 # Main App
 st.set_page_config(page_title="Cram AI", layout="centered")
 
-st.title("Cram AI 🚀")
+st.title("Cram AI")
 st.markdown("Upload your study materials and get instant answers")
 
 # Initialize RAG system
@@ -159,9 +160,13 @@ if st.session_state.get('processed', False):
 
 with st.expander("How to use Cram AI"):
     st.markdown("""
-    1. **Upload** a PDF, PowerPoint, or image
-    2. **Wait** for processing  
-    3. **Ask questions** about your content
-    
-    **Supported formats:** PDF, PowerPoint, Images
+    1. **Upload** a PDF, PowerPoint, or image of study materials
+    2. **Wait** for processing to complete
+    3. **Ask questions** about your specific content
+    4. **Test different file types** to see what works best
+
+    **Supported formats:**
+    - PDF documents
+    - PowerPoint (.pptx) presentations
+    - Images with text (PNG, JPG)
     """)
