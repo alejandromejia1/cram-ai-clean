@@ -12,20 +12,20 @@ class SimpleRAG:
             
             # Check if it's the bad placeholder
             if "your_actual" in api_key or "your-real" in api_key:
-                st.error("❌ Please set a real OPENAI_API_KEY in your Streamlit secrets")
+                st.error("Please set a real OPENAI_API_KEY in your Streamlit secrets")
                 self.client = None
                 return
                 
             try:
                 self.client = OpenAI(api_key=api_key)
-                st.success("✅ API connection successful!")
+                st.success("API connection successful!")
                 return
             except Exception as e:
-                st.error(f"❌ API Key failed: {str(e)}")
+                st.error(f"API Key failed: {str(e)}")
                 self.client = None
                 return
         else:
-            st.error("❌ OPENAI_API_KEY not found in st.secrets")
+            st.error("OPENAI_API_KEY not found in Streamlit secrets")
             self.client = None
             return
     
