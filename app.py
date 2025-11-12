@@ -50,6 +50,11 @@ class FileProcessor:
 # RAG System Class
 class SimpleRAG:
     def __init__(self):
+        self.documents = {}  # Initialize documents first
+        self.current_doc_id = None
+        self.client = None
+        self.model_name = None
+        
         if 'GROQ_API_KEY' in st.secrets:
             api_key = st.secrets['GROQ_API_KEY']
             
@@ -66,8 +71,7 @@ class SimpleRAG:
                 else:
                     self.model_name = model_list[0] if model_list else None
                     
-                self.documents = {}  # Store multiple documents
-                self.current_doc_id = None
+                st.success("✅ System ready!")
                 
             except Exception as e:
                 st.error(f"API connection failed: {str(e)}")
@@ -78,6 +82,9 @@ class SimpleRAG:
             self.client = None
             self.model_name = None
     
+    def is_ready(self):
+        return self.client is not None and self.model_name is not None
+    
     def add_document(self, text, doc_id, filename):
         if text and text != "Unsupported file type":
             self.documents[doc_id] = {
@@ -85,10 +92,12 @@ class SimpleRAG:
                 'filename': filename,
                 'processed': True
             }
-            self.current_doc_id = doc_id  # Set as current
+            if self.current_doc_id is None:
+                self.current_doc_id = doc_id
     
     def switch_document(self, doc_id):
-        self.current_doc_id = doc_id
+        if doc_id in self.documents:
+            self.current_doc_id = doc_id
     
     def delete_document(self, doc_id):
         if doc_id in self.documents:
@@ -102,7 +111,7 @@ class SimpleRAG:
         return None
     
     def query(self, question):
-        if not self.client or not self.model_name:
+        if not self.is_ready():
             return "System not ready - check API key status."
         
         current_text = self.get_current_document()
@@ -152,7 +161,10 @@ uploaded_files = st.file_uploader(
 # Process uploaded files
 if uploaded_files:
     for uploaded_file in uploaded_files:
-        if uploaded_file.name not in [doc['filename'] for doc in rag.documents.values()]:
+        # Check if file already exists
+        file_exists = any(doc['filename'] == uploaded_file.name for doc in rag.documents.values())
+        
+        if not file_exists:
             with st.spinner(f"Processing {uploaded_file.name}..."):
                 text = FileProcessor.process_file(uploaded_file)
                 
@@ -163,8 +175,8 @@ if uploaded_files:
                 else:
                     st.error(f"❌ Could not process {uploaded_file.name}")
 
-# FILE MANAGEMENT DASHBOARD
-if rag.documents:
+# FILE MANAGEMENT DASHBOARD - Only show if system is ready and has documents
+if rag.is_ready() and rag.documents:
     st.divider()
     st.subheader("Your Documents")
     
@@ -174,7 +186,8 @@ if rag.documents:
         selected_doc = st.selectbox(
             "Select document to query:",
             options=list(doc_options.keys()),
-            format_func=lambda x: doc_options[x]
+            format_func=lambda x: doc_options[x],
+            index=list(doc_options.keys()).index(rag.current_doc_id) if rag.current_doc_id in doc_options else 0
         )
         rag.switch_document(selected_doc)
         
@@ -187,8 +200,8 @@ if rag.documents:
             rag.delete_document(selected_doc)
             st.rerun()
 
-# Q&A SECTION
-if rag.get_current_document():
+# Q&A SECTION - Only show if system is ready and has a document selected
+if rag.is_ready() and rag.get_current_document():
     st.divider()
     st.subheader("Ask Questions")
     
@@ -198,6 +211,10 @@ if rag.get_current_document():
         answer = rag.query(question)
         st.markdown("### Answer:")
         st.write(answer)
+elif rag.is_ready() and not rag.documents:
+    st.info("📁 Upload some documents to get started!")
+elif not rag.is_ready():
+    st.warning("⚠️ System initializing...")
 
 # Instructions
 with st.expander("How to use Cram AI"):
@@ -219,3 +236,4 @@ with st.expander("Developer Info"):
             ext = doc['filename'].split('.')[-1].lower()
             file_types[ext] = file_types.get(ext, 0) + 1
         st.write(f"📁 File types: {file_types}")
+    st.write(f"🔧 System ready: {rag.is_ready()}")
