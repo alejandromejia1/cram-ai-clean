@@ -3,29 +3,34 @@ from openai import OpenAI
 
 class SimpleRAG:
     def __init__(self):
-        # ONLY use Streamlit secrets - no .env fallback
-        if 'OPENAI_API_KEY' not in st.secrets:
-            st.error("❌ API key not found in Streamlit secrets")
-            self.client = None
-            return
-            
-        api_key = st.secrets['OPENAI_API_KEY']
+        st.write("🔍 DEBUG: Secrets available:", list(st.secrets.keys()))
         
-        # Validate it's a real key
-        if "your_actual" in api_key or "your-real" in api_key:
-            st.error("❌ Invalid API key - contains placeholder text")
+        # DIRECT access to secrets - no try/except
+        if 'OPENAI_API_KEY' in st.secrets:
+            api_key = st.secrets['OPENAI_API_KEY']
+            st.write(f"📋 Key found: {api_key[:20]}...")
+            
+            # Check if it's the bad placeholder
+            if "your_actual" in api_key or "your-real" in api_key:
+                st.error("❌ BAD KEY: Contains placeholder text")
+                self.client = None
+                return
+                
+            try:
+                self.client = OpenAI(api_key=api_key)
+                # Test the key
+                self.client.models.list()
+                st.success("✅ API KEY VALIDATED AND WORKING!")
+                self.current_document = ""
+                return
+            except Exception as e:
+                st.error(f"❌ API Key failed: {str(e)}")
+                self.client = None
+                return
+        else:
+            st.error("❌ OPENAI_API_KEY not found in st.secrets")
             self.client = None
             return
-            
-        try:
-            self.client = OpenAI(api_key=api_key)
-            st.success("✅ API key validated successfully!")
-        except Exception as e:
-            st.error(f"❌ API key validation failed: {str(e)}")
-            self.client = None
-            return
-            
-        self.current_document = ""
     
     def add_document(self, text, doc_id):
         if text and text != "Unsupported file type":
@@ -33,7 +38,7 @@ class SimpleRAG:
     
     def query(self, question, n_results=3):
         if not self.client:
-            return "OpenAI client not configured. Please check your API key in Streamlit secrets."
+            return "System not ready - API key issue above."
             
         try:
             if not self.current_document:
