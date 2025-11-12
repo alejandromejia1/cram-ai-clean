@@ -19,17 +19,17 @@ class SimpleRAG:
                 
                 # Check if it's the bad placeholder
                 if "your_actual" in api_key or "your-real" in api_key:
-                    st.error("Please set a real OPENAI_API_KEY in your Streamlit secrets")
+                    # Don't show error in main interface
                     self.client = None
                     return
                     
                 self.client = OpenAI(api_key=api_key)
                 self.initialized = True
             else:
-                st.error("OPENAI_API_KEY not found in Streamlit secrets")
+                # Don't show error in main interface
                 self.client = None
         except Exception as e:
-            st.error(f"API initialization failed: {str(e)}")
+            # Don't show error in main interface
             self.client = None
     
     def is_ready(self):
@@ -85,7 +85,7 @@ class SimpleRAG:
     
     def query(self, question):
         if not self.is_ready():
-            return "System not ready - please check API key configuration in the sidebar."
+            return "Please configure your API key in the Streamlit secrets to enable AI responses."
         
         current_text = self.get_current_document()
         if not current_text:
@@ -133,4 +133,4 @@ Context:"""
             
             return answer
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"Error processing your request: {str(e)}"

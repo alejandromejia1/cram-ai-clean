@@ -12,8 +12,37 @@ rag = st.session_state.rag
 # Main App
 st.set_page_config(page_title="Cram AI", layout="wide")
 
-st.title("Cram AI")
-st.markdown("Upload your study materials and chat with them")
+# Modern CSS with custom font and no emojis
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    .main-header {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 0.5rem;
+    }
+    
+    .sub-header {
+        font-size: 1.1rem;
+        color: #6b7280;
+        margin-bottom: 2rem;
+    }
+    
+    /* Remove emojis from chat messages */
+    .stChatMessage {
+        background-color: transparent;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="main-header">Cram AI</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Upload your study materials and chat with them</div>', unsafe_allow_html=True)
 
 # Sidebar for file management
 with st.sidebar:
@@ -61,11 +90,11 @@ with st.sidebar:
             # Conversation controls
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Clear Chat", use_container_width=True):
+                if st.button("Clear Chat", use_container_width=True, key="clear_chat"):
                     rag.clear_conversation()
                     st.rerun()
             with col2:
-                if st.button("Delete Document", use_container_width=True):
+                if st.button("Delete Doc", use_container_width=True, key="delete_doc"):
                     rag.delete_document(selected_doc)
                     st.rerun()
 
@@ -87,7 +116,7 @@ with col1:
                     if rag.is_ready():
                         st.write("Hi! I'm ready to answer questions about your document. Ask me anything!")
                     else:
-                        st.write("Hi! I can see your documents. The system is initializing...")
+                        st.write("Hi! I can see your documents. Ask me anything about them!")
             
             # Display conversation history
             for conv in conversation_history:
@@ -127,8 +156,7 @@ with col2:
             doc_name = rag.documents[rag.current_doc_id]['filename']
             st.write(f"**Active:** {doc_name}")
         
-        if not rag.is_ready():
-            st.warning("Check API configuration")
+        # Removed the API configuration warning
     else:
         st.write("No documents yet")
 
