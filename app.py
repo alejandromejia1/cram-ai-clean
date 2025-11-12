@@ -1,26 +1,121 @@
 import streamlit as st
 import os
-from file_processor import FileProcessor
-from rag_system import SimpleRAG
+from PyPDF2 import PdfReader
+from pptx import Presentation
+import pytesseract
+from PIL import Image
+import io
 import uuid
+from openai import OpenAI
 
+# File Processor Class
+class FileProcessor:
+    @staticmethod
+    def extract_pdf_text(file):
+        pdf_reader = PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    
+    @staticmethod
+    def extract_ppt_text(file):
+        prs = Presentation(file)
+        text = ""
+        for slide in prs.slides:
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    text += shape.text + "\n"
+        return text
+    
+    @staticmethod
+    def extract_image_text(file):
+        image = Image.open(file)
+        text = pytesseract.image_to_string(image)
+        return text
+    
+    @staticmethod
+    def process_file(uploaded_file):
+        file_type = uploaded_file.type
+        
+        if file_type == "application/pdf":
+            return FileProcessor.extract_pdf_text(uploaded_file)
+        elif file_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+            return FileProcessor.extract_ppt_text(uploaded_file)
+        elif file_type.startswith('image'):
+            return FileProcessor.extract_image_text(uploaded_file)
+        else:
+            return "Unsupported file type"
+
+# RAG System Class
+class SimpleRAG:
+    def __init__(self):
+        st.write("🔄 Initializing RAG System...")
+        st.write(f"🔍 Available secrets: {list(st.secrets.keys())}")
+        
+        if 'OPENAI_API_KEY' in st.secrets:
+            api_key = st.secrets['OPENAI_API_KEY']
+            st.write(f"📋 Key preview: {api_key[:25]}...")
+            
+            if "your_actual" in api_key or "your-real" in api_key:
+                st.error("❌ INVALID: Key contains placeholder text")
+                self.client = None
+                return
+                
+            try:
+                self.client = OpenAI(api_key=api_key)
+                # Quick test
+                self.client.models.list()
+                st.success("✅ API KEY VALIDATED AND WORKING!")
+                self.current_document = ""
+            except Exception as e:
+                st.error(f"❌ API Key test failed: {str(e)}")
+                self.client = None
+        else:
+            st.error("❌ OPENAI_API_KEY not found in secrets")
+            self.client = None
+    
+    def add_document(self, text, doc_id):
+        if text and text != "Unsupported file type":
+            self.current_document = text
+            st.success("📄 Document loaded successfully!")
+    
+    def query(self, question):
+        if not self.client:
+            return "System not ready - check API key status above."
+        if not self.current_document:
+            return "Please upload a document first."
+            
+        try:
+            with st.spinner("🤔 Analyzing your document..."):
+                prompt = f"""Based ONLY on the following context:
+
+{self.current_document}
+
+Question: {question}
+
+Answer:"""
+                
+                response = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=500
+                )
+                return f"**Answer:** {response.choices[0].message.content}"
+        except Exception as e:
+            return f"❌ Error: {str(e)}"
+
+# Main App
 st.set_page_config(page_title="Cram AI", layout="centered")
-
-# DEBUG: Show what secrets are available
-st.write("🔍 DEBUG: Checking Streamlit secrets...")
-if hasattr(st, 'secrets'):
-    st.write(f"Secrets keys: {list(st.secrets.keys())}")
-else:
-    st.write("No st.secrets found")
-
-@st.cache_resource
-def get_rag_system():
-    return SimpleRAG()
-
-rag = get_rag_system()
 
 st.title("Cram AI")
 st.markdown("Upload your study materials and get instant answers")
+
+# Initialize RAG system
+if 'rag' not in st.session_state:
+    st.session_state.rag = SimpleRAG()
+
+rag = st.session_state.rag
 
 uploaded_file = st.file_uploader(
     "Upload study materials",
@@ -37,10 +132,7 @@ if uploaded_file is not None:
         if text != "Unsupported file type" and len(text.strip()) > 0:
             doc_id = str(uuid.uuid4())
             rag.add_document(text, doc_id)
-            st.session_state['current_doc'] = doc_id
             st.session_state['processed'] = True
-            
-            st.success("File processed successfully!")
             
             with st.expander("Preview extracted text"):
                 st.text_area("Extracted Content", text[:1000] + "..." if len(text) > 1000 else text, height=200)
@@ -54,10 +146,9 @@ if st.session_state.get('processed', False):
     question = st.text_input("What would you like to know about your document?")
     
     if question:
-        with st.spinner("Finding answer..."):
-            answer = rag.query(question)
-            st.markdown("### Answer:")
-            st.write(answer)
+        answer = rag.query(question)
+        st.markdown("### Answer:")
+        st.write(answer)
 
 with st.expander("How to use Cram AI"):
     st.markdown("""
