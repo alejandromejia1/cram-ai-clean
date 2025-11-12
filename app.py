@@ -41,7 +41,7 @@ class FileProcessor:
         if file_type == "application/pdf":
             return FileProcessor.extract_pdf_text(uploaded_file)
         elif file_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-            return FileProcessor.extract_ppt_text(uploaded_file)
+            return FilePDFProcessor.extract_ppt_text(uploaded_file)
         elif file_type.startswith('image'):
             return FileProcessor.extract_image_text(uploaded_file)
         else:
@@ -128,8 +128,7 @@ class SimpleRAG:
                 self.conversations[self.current_doc_id] = []
             self.conversations[self.current_doc_id].append({
                 'question': question,
-                'answer': answer,
-                'timestamp': st.session_state.get('conversation_count', 0)
+                'answer': answer
             })
     
     def clear_conversation(self):
@@ -174,7 +173,7 @@ Answer based only on the context above:"""
                 # Store in conversation history
                 self.add_to_conversation(question, answer)
                 
-                return f"**Answer:** {answer}"
+                return answer
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -249,8 +248,9 @@ if rag.is_ready() and rag.documents:
                 rag.delete_document(selected_doc)
                 st.rerun()
 
-# CONVERSATION HISTORY - Show previous Q&A
+# Q&A SECTION - MOVE CONVERSATION HISTORY INSIDE THIS SECTION
 if rag.is_ready() and rag.get_current_document():
+    # Show conversation history first
     conversation_history = rag.get_conversation_history()
     if conversation_history:
         st.divider()
@@ -260,9 +260,7 @@ if rag.is_ready() and rag.get_current_document():
             with st.expander(f"Q: {conv['question'][:50]}...", expanded=(i == len(conversation_history)-1)):
                 st.markdown(f"**Question:** {conv['question']}")
                 st.markdown(f"**Answer:** {conv['answer']}")
-
-# Q&A SECTION
-if rag.is_ready() and rag.get_current_document():
+    
     st.divider()
     st.subheader("Ask Questions")
     
