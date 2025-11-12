@@ -16,7 +16,7 @@ rag = st.session_state.rag
 # Main App
 st.set_page_config(
     page_title="Cram AI",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -25,9 +25,11 @@ if st.session_state.dark_mode:
     theme_css = """
     <style>
         .main .block-container {
-            padding-top: 2rem !important;
+            padding-top: 1rem !important;
             padding-bottom: 1rem !important;
-            max-width: 700px !important;
+            max-width: 800px !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
         }
         
         /* Dark theme */
@@ -41,12 +43,7 @@ if st.session_state.dark_mode:
             font-size: 2.5rem !important;
             font-weight: 700 !important;
             text-align: center !important;
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Header centering */
-        .header-container {
-            text-align: center !important;
+            margin-bottom: 0.25rem !important;
         }
         
         .subtitle {
@@ -56,7 +53,7 @@ if st.session_state.dark_mode:
         }
         
         /* Upload area - dark */
-        .upload-section {
+        .section {
             background: #1a1a1a;
             border-radius: 12px;
             padding: 1.5rem;
@@ -64,67 +61,41 @@ if st.session_state.dark_mode:
             border: 1px solid #333333;
         }
         
-        .upload-area {
-            border: 2px dashed #444444;
-            border-radius: 8px;
-            padding: 1.5rem;
-            background: #000000;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-        
-        .upload-area:hover {
-            border-color: #666666;
-        }
-        
-        .upload-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #ffffff;
-            margin: 0 0 0.25rem 0;
-        }
-        
-        .upload-subtitle {
-            color: #999999;
-            font-size: 0.85rem;
-            margin: 0;
-        }
-        
-        /* Chat styling - dark */
-        .message {
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0;
-            border-radius: 8px;
-            line-height: 1.5;
-            max-width: 80%;
-            font-size: 0.95rem;
-        }
-        
-        .user-message {
+        /* Chat messages */
+        .user-msg {
             background: #333333;
-            color: #ffffff;
-            margin-left: auto;
-            border-bottom-right-radius: 2px;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 18px 18px 4px 18px;
+            margin: 0.5rem 0 0.5rem auto;
+            max-width: 70%;
+            word-wrap: break-word;
         }
         
-        .assistant-message {
-            background: #1a1a1a;
-            color: #ffffff;
+        .assistant-msg {
+            background: #2a2a2a;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 18px 18px 18px 4px;
+            margin: 0.5rem auto 0.5rem 0;
+            max-width: 70%;
             border: 1px solid #333333;
-            border-bottom-left-radius: 2px;
-        }
-        
-        .welcome-text {
-            text-align: center;
-            padding: 1.5rem;
-            color: #999999;
+            word-wrap: break-word;
         }
         
         /* Theme toggle */
         .theme-toggle {
-            position: absolute;
+            position: fixed;
             top: 1rem;
             right: 1rem;
+            background: #333333;
+            color: white;
+            border: 1px solid #555555;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 1000;
         }
     </style>
     """
@@ -132,9 +103,11 @@ else:
     theme_css = """
     <style>
         .main .block-container {
-            padding-top: 2rem !important;
+            padding-top: 1rem !important;
             padding-bottom: 1rem !important;
-            max-width: 700px !important;
+            max-width: 800px !important;
+            padding-left: 2rem !important;
+            padding-right: 2rem !important;
         }
         
         /* Light theme */
@@ -148,12 +121,7 @@ else:
             font-size: 2.5rem !important;
             font-weight: 700 !important;
             text-align: center !important;
-            margin-bottom: 0.5rem !important;
-        }
-        
-        /* Header centering */
-        .header-container {
-            text-align: center !important;
+            margin-bottom: 0.25rem !important;
         }
         
         .subtitle {
@@ -163,7 +131,7 @@ else:
         }
         
         /* Upload area - light */
-        .upload-section {
+        .section {
             background: #f8f9fa;
             border-radius: 12px;
             padding: 1.5rem;
@@ -171,67 +139,41 @@ else:
             border: 1px solid #e9ecef;
         }
         
-        .upload-area {
-            border: 2px dashed #d1d5db;
-            border-radius: 8px;
-            padding: 1.5rem;
-            background: #ffffff;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-        
-        .upload-area:hover {
-            border-color: #000000;
-        }
-        
-        .upload-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #000000;
-            margin: 0 0 0.25rem 0;
-        }
-        
-        .upload-subtitle {
-            color: #666666;
-            font-size: 0.85rem;
-            margin: 0;
-        }
-        
-        /* Chat styling - light */
-        .message {
-            padding: 0.75rem 1rem;
-            margin: 0.5rem 0;
-            border-radius: 8px;
-            line-height: 1.5;
-            max-width: 80%;
-            font-size: 0.95rem;
-        }
-        
-        .user-message {
+        /* Chat messages */
+        .user-msg {
             background: #000000;
-            color: #ffffff;
-            margin-left: auto;
-            border-bottom-right-radius: 2px;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 18px 18px 4px 18px;
+            margin: 0.5rem 0 0.5rem auto;
+            max-width: 70%;
+            word-wrap: break-word;
         }
         
-        .assistant-message {
+        .assistant-msg {
             background: #f8f9fa;
             color: #333333;
+            padding: 0.75rem 1rem;
+            border-radius: 18px 18px 18px 4px;
+            margin: 0.5rem auto 0.5rem 0;
+            max-width: 70%;
             border: 1px solid #e9ecef;
-            border-bottom-left-radius: 2px;
-        }
-        
-        .welcome-text {
-            text-align: center;
-            padding: 1.5rem;
-            color: #666666;
+            word-wrap: break-word;
         }
         
         /* Theme toggle */
         .theme-toggle {
-            position: absolute;
+            position: fixed;
             top: 1rem;
             right: 1rem;
+            background: #f8f9fa;
+            color: #000000;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            z-index: 1000;
         }
     </style>
     """
@@ -245,38 +187,32 @@ st.markdown("""
     footer {visibility: hidden !important;}
     .stDeployButton {display: none !important;}
     header {visibility: hidden !important;}
-    
-    .stChatInput > div > div {
-        border: 1px solid #333333 !important;
-        border-radius: 20px !important;
-        padding: 0.75rem 1rem !important;
-        background: #1a1a1a !important;
-        color: #ffffff !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# Theme toggle button
-col1, col2, col3 = st.columns([1, 2, 1])
-with col3:
-    if st.button("🌙" if st.session_state.dark_mode else "☀️"):
-        st.session_state.dark_mode = not st.session_state.dark_mode
-        st.rerun()
+# Theme toggle
+st.markdown(f"""
+<div class="theme-toggle" onclick="this.style.display='none'">
+    <div style="display: none">
+        {st.button("Toggle Theme", key="theme_toggle")}
+    </div>
+    {'Light Mode' if st.session_state.dark_mode else 'Dark Mode'}
+</div>
+""", unsafe_allow_html=True)
 
-# Header with centered alignment
-st.markdown('<div class="header-container">', unsafe_allow_html=True)
+if st.session_state.get('theme_toggle'):
+    st.session_state.dark_mode = not st.session_state.dark_mode
+    st.rerun()
+
+# Header
 st.markdown("# Cram AI")
 st.markdown('<div class="subtitle">Upload documents and ask questions</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("---")
 
 # Upload section
 with st.container():
-    st.markdown("### Add study materials")
-    st.markdown("PDF, PowerPoint, or images")
+    st.markdown("## Add study materials")
+    st.markdown("**PDF, PowerPoint, or images**")
     
-    # File uploader
     uploaded_files = st.file_uploader(
         "Upload files",
         type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
@@ -304,42 +240,58 @@ if uploaded_files:
 if hasattr(rag, 'documents') and rag.documents:
     conversation_history = rag.get_conversation_history()
     
-    if conversation_history:
-        for conv in conversation_history:
-            st.markdown(f'<div class="message user-message">{conv["question"]}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="message assistant-message">{conv["answer"]}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="welcome-text">Your documents are ready. Ask a question to get started.</div>', unsafe_allow_html=True)
+    # Display conversation
+    for conv in conversation_history:
+        st.markdown(f'<div class="user-msg">{conv["question"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="assistant-msg">{conv["answer"]}</div>', unsafe_allow_html=True)
     
-    # Chat input
-    if prompt := st.chat_input("Ask a question..."):
+    # Welcome message if no conversation
+    if not conversation_history:
+        st.markdown("""
+        <div style="text-align: center; padding: 2rem; color: #666;">
+            Your documents are ready. Ask a question to get started.
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Chat input - FIXED: This should work now
+    if prompt := st.chat_input("Ask a question about your documents..."):
+        # Display user message immediately
+        st.markdown(f'<div class="user-msg">{prompt}</div>', unsafe_allow_html=True)
+        
+        # Get and display assistant response
         response = rag.query(prompt)
+        st.markdown(f'<div class="assistant-msg">{response}</div>', unsafe_allow_html=True)
+        
+        # Rerun to update the state
         st.rerun()
     
     # Document management
-    if rag.documents:
-        st.markdown("---")
-        col1, col2, col3 = st.columns([2, 1, 1])
-        
-        with col1:
-            doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
-            selected_doc = st.selectbox(
-                "Active document:",
-                options=list(doc_options.keys()),
-                format_func=lambda x: doc_options[x],
-                index=0
-            )
-            rag.switch_document(selected_doc)
-        
-        with col2:
-            if st.button("Clear chat", use_container_width=True):
-                rag.clear_conversation()
-                st.rerun()
-        
-        with col3:
-            if st.button("Remove", use_container_width=True):
-                rag.delete_document(selected_doc)
-                st.rerun()
+    st.markdown("---")
+    col1, col2, col3 = st.columns([2, 1, 1])
+    
+    with col1:
+        doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
+        selected_doc = st.selectbox(
+            "Active document:",
+            options=list(doc_options.keys()),
+            format_func=lambda x: doc_options[x],
+            index=0
+        )
+        rag.switch_document(selected_doc)
+    
+    with col2:
+        if st.button("Clear chat", use_container_width=True):
+            rag.clear_conversation()
+            st.rerun()
+    
+    with col3:
+        if st.button("Remove document", use_container_width=True):
+            rag.delete_document(selected_doc)
+            st.rerun()
 
 else:
-    st.markdown('<div class="welcome-text">Upload documents to begin</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align: center; padding: 3rem; color: #666;">
+        Upload documents to begin
+    </div>
+    """, unsafe_allow_html=True)
