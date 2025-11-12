@@ -259,7 +259,7 @@ st.markdown("""
 # Theme toggle button
 col1, col2, col3 = st.columns([1, 2, 1])
 with col3:
-    if st.button("Light Mode" if st.session_state.dark_mode else "Dark Mode"):
+    if st.button("🌙" if st.session_state.dark_mode else "☀️"):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
