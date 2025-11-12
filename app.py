@@ -6,7 +6,7 @@ import pytesseract
 from PIL import Image
 import io
 import uuid
-from openai import OpenAI
+from openai import OpenAI  # Same library, different base_url!
 
 # File Processor Class
 class FileProcessor:
@@ -47,32 +47,35 @@ class FileProcessor:
         else:
             return "Unsupported file type"
 
-# RAG System Class
+# RAG System Class - NOW USING GROQ
 class SimpleRAG:
     def __init__(self):
-        st.write("🔄 Initializing RAG System...")
-        st.write(f"🔍 Available secrets: {list(st.secrets.keys())}")
+        st.write("🔄 Initializing RAG System with Groq...")
         
-        if 'OPENAI_API_KEY' in st.secrets:
-            api_key = st.secrets['OPENAI_API_KEY']
-            st.write(f"📋 Key preview: {api_key[:25]}...")
+        if 'GROQ_API_KEY' in st.secrets:
+            api_key = st.secrets['GROQ_API_KEY']
+            st.write(f"📋 Groq Key: {api_key[:20]}...")
             
-            if "your_actual" in api_key or "your-real" in api_key:
-                st.error("❌ INVALID: Key contains placeholder text")
+            if "your_groq_key" in api_key:
+                st.error("❌ Please add your real Groq API key to Streamlit secrets")
                 self.client = None
                 return
                 
             try:
-                self.client = OpenAI(api_key=api_key)
+                # Use Groq instead of OpenAI
+                self.client = OpenAI(
+                    api_key=api_key,
+                    base_url="https://api.groq.com/openai/v1"
+                )
                 # Quick test
                 self.client.models.list()
-                st.success("✅ API KEY VALIDATED AND WORKING!")
+                st.success("✅ GROQ API CONNECTED! (Free tier active)")
                 self.current_document = ""
             except Exception as e:
-                st.error(f"❌ API Key test failed: {str(e)}")
+                st.error(f"❌ Groq connection failed: {str(e)}")
                 self.client = None
         else:
-            st.error("❌ OPENAI_API_KEY not found in secrets")
+            st.error("❌ GROQ_API_KEY not found in secrets")
             self.client = None
     
     def add_document(self, text, doc_id):
@@ -87,19 +90,20 @@ class SimpleRAG:
             return "Please upload a document first."
             
         try:
-            with st.spinner("🤔 Analyzing your document..."):
+            with st.spinner("🤔 Analyzing with Groq (Lightning Fast!)..."):
                 prompt = f"""Based ONLY on the following context:
 
 {self.current_document}
 
 Question: {question}
 
-Answer:"""
+Answer based only on the context above:"""
                 
                 response = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="llama3-8b-8192",  # Groq's fast free model
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=500
+                    max_tokens=500,
+                    temperature=0.1
                 )
                 return f"**Answer:** {response.choices[0].message.content}"
         except Exception as e:
@@ -108,8 +112,8 @@ Answer:"""
 # Main App
 st.set_page_config(page_title="Cram AI", layout="centered")
 
-st.title("Cram AI")
-st.markdown("Upload your study materials and get instant answers")
+st.title("Cram AI 🚀")
+st.markdown("**Now powered by Groq - Lightning fast & FREE!**")
 
 # Initialize RAG system
 if 'rag' not in st.session_state:
@@ -152,13 +156,14 @@ if st.session_state.get('processed', False):
 
 with st.expander("How to use Cram AI"):
     st.markdown("""
-    1. **Upload** a PDF, PowerPoint, or image of study materials
-    2. **Wait** for processing to complete
-    3. **Ask questions** about your specific content
-    4. **Test different file types** to see what works best
-
-    **Supported formats:**
-    - PDF documents
-    - PowerPoint (.pptx) presentations
-    - Images with text (PNG, JPG)
+    1. **Upload** a PDF, PowerPoint, or image
+    2. **Wait** for processing  
+    3. **Ask questions** about your content
+    
+    **Powered by Groq - Free & Lightning Fast!**
+    
+    **Supported formats:** PDF, PowerPoint, Images
     """)
+    
+st.markdown("---")
+st.markdown("*Now with free Groq API - no usage costs!*")
