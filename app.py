@@ -58,21 +58,16 @@ class SimpleRAG:
                     api_key=api_key,
                     base_url="https://api.groq.com/openai/v1"
                 )
-                # List available models and choose one
                 models = self.client.models.list()
                 model_list = [model.id for model in models]
                 
-                # Choose the best available model
                 if "llama-3.1-8b-instant" in model_list:
                     self.model_name = "llama-3.1-8b-instant"
-                elif "llama3-8b-8192" in model_list:
-                    self.model_name = "llama3-8b-8192"
-                elif "llama3-70b-8192" in model_list:
-                    self.model_name = "llama3-70b-8192"
                 else:
                     self.model_name = model_list[0] if model_list else None
                     
-                self.current_document = ""
+                self.documents = {}  # Store multiple documents
+                self.current_doc_id = None
                 
             except Exception as e:
                 st.error(f"API connection failed: {str(e)}")
@@ -83,21 +78,42 @@ class SimpleRAG:
             self.client = None
             self.model_name = None
     
-    def add_document(self, text, doc_id):
+    def add_document(self, text, doc_id, filename):
         if text and text != "Unsupported file type":
-            self.current_document = text
+            self.documents[doc_id] = {
+                'text': text,
+                'filename': filename,
+                'processed': True
+            }
+            self.current_doc_id = doc_id  # Set as current
+    
+    def switch_document(self, doc_id):
+        self.current_doc_id = doc_id
+    
+    def delete_document(self, doc_id):
+        if doc_id in self.documents:
+            del self.documents[doc_id]
+            if self.current_doc_id == doc_id:
+                self.current_doc_id = list(self.documents.keys())[0] if self.documents else None
+    
+    def get_current_document(self):
+        if self.current_doc_id and self.current_doc_id in self.documents:
+            return self.documents[self.current_doc_id]['text']
+        return None
     
     def query(self, question):
         if not self.client or not self.model_name:
             return "System not ready - check API key status."
-        if not self.current_document:
-            return "Please upload a document first."
+        
+        current_text = self.get_current_document()
+        if not current_text:
+            return "Please upload and select a document first."
             
         try:
             with st.spinner("Finding answer..."):
                 prompt = f"""Based ONLY on the following context:
 
-{self.current_document}
+{current_text}
 
 Question: {question}
 
@@ -125,29 +141,54 @@ if 'rag' not in st.session_state:
 
 rag = st.session_state.rag
 
-uploaded_file = st.file_uploader(
+# MULTIPLE FILE UPLOAD
+uploaded_files = st.file_uploader(
     "Upload study materials",
     type=['pdf', 'pptx', 'png', 'jpg', 'jpeg'],
+    accept_multiple_files=True,
     help="Supported: PDF, PowerPoint, Images"
 )
 
-if uploaded_file is not None:
-    st.success(f"Uploaded: {uploaded_file.name}")
-    
-    with st.spinner("Processing your file..."):
-        text = FileProcessor.process_file(uploaded_file)
-        
-        if text != "Unsupported file type" and len(text.strip()) > 0:
-            doc_id = str(uuid.uuid4())
-            rag.add_document(text, doc_id)
-            st.session_state['processed'] = True
-            
-            with st.expander("Preview extracted text"):
-                st.text_area("Extracted Content", text[:1000] + "..." if len(text) > 1000 else text, height=200)
-        else:
-            st.error("Could not extract text from this file. Try a different format.")
+# Process uploaded files
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        if uploaded_file.name not in [doc['filename'] for doc in rag.documents.values()]:
+            with st.spinner(f"Processing {uploaded_file.name}..."):
+                text = FileProcessor.process_file(uploaded_file)
+                
+                if text != "Unsupported file type" and len(text.strip()) > 0:
+                    doc_id = str(uuid.uuid4())
+                    rag.add_document(text, doc_id, uploaded_file.name)
+                    st.success(f"✅ {uploaded_file.name} processed")
+                else:
+                    st.error(f"❌ Could not process {uploaded_file.name}")
 
-if st.session_state.get('processed', False):
+# FILE MANAGEMENT DASHBOARD
+if rag.documents:
+    st.divider()
+    st.subheader("Your Documents")
+    
+    # Document selector
+    doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
+    if doc_options:
+        selected_doc = st.selectbox(
+            "Select document to query:",
+            options=list(doc_options.keys()),
+            format_func=lambda x: doc_options[x]
+        )
+        rag.switch_document(selected_doc)
+        
+        # Show current document info
+        current_doc = rag.documents[selected_doc]
+        st.info(f"📄 Currently viewing: {current_doc['filename']}")
+        
+        # Delete button
+        if st.button("Delete this document", key=f"delete_{selected_doc}"):
+            rag.delete_document(selected_doc)
+            st.rerun()
+
+# Q&A SECTION
+if rag.get_current_document():
     st.divider()
     st.subheader("Ask Questions")
     
@@ -158,15 +199,23 @@ if st.session_state.get('processed', False):
         st.markdown("### Answer:")
         st.write(answer)
 
+# Instructions
 with st.expander("How to use Cram AI"):
     st.markdown("""
-    1. **Upload** a PDF, PowerPoint, or image of study materials
-    2. **Wait** for processing to complete
+    1. **Upload** multiple PDFs, PowerPoints, or images
+    2. **Select** which document to query
     3. **Ask questions** about your specific content
-    4. **Test different file types** to see what works best
-
-    **Supported formats:**
-    - PDF documents
-    - PowerPoint (.pptx) presentations
-    - Images with text (PNG, JPG)
+    4. **Manage** your uploaded files
+    
+    **Supported formats:** PDF, PowerPoint, Images
     """)
+
+# Basic analytics (for you)
+with st.expander("Developer Info"):
+    st.write(f"📊 Documents loaded: {len(rag.documents)}")
+    if rag.documents:
+        file_types = {}
+        for doc in rag.documents.values():
+            ext = doc['filename'].split('.')[-1].lower()
+            file_types[ext] = file_types.get(ext, 0) + 1
+        st.write(f"📁 File types: {file_types}")
