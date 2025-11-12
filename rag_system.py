@@ -6,31 +6,34 @@ class SimpleRAG:
         self.documents = {}
         self.current_doc_id = None
         self.conversations = {}
+        self.client = None
+        self.initialized = False
         
-        if 'OPENAI_API_KEY' in st.secrets:
-            api_key = st.secrets['OPENAI_API_KEY']
-            
-            # Check if it's the bad placeholder
-            if "your_actual" in api_key or "your-real" in api_key:
-                st.error("Please set a real OPENAI_API_KEY in your Streamlit secrets")
-                self.client = None
-                return
+        # Initialize without blocking the entire app
+        self._initialize_client()
+    
+    def _initialize_client(self):
+        try:
+            if 'OPENAI_API_KEY' in st.secrets:
+                api_key = st.secrets['OPENAI_API_KEY']
                 
-            try:
+                # Check if it's the bad placeholder
+                if "your_actual" in api_key or "your-real" in api_key:
+                    st.error("Please set a real OPENAI_API_KEY in your Streamlit secrets")
+                    self.client = None
+                    return
+                    
                 self.client = OpenAI(api_key=api_key)
-                st.success("API connection successful!")
-                return
-            except Exception as e:
-                st.error(f"API Key failed: {str(e)}")
+                self.initialized = True
+            else:
+                st.error("OPENAI_API_KEY not found in Streamlit secrets")
                 self.client = None
-                return
-        else:
-            st.error("OPENAI_API_KEY not found in Streamlit secrets")
+        except Exception as e:
+            st.error(f"API initialization failed: {str(e)}")
             self.client = None
-            return
     
     def is_ready(self):
-        return self.client is not None
+        return self.client is not None and self.initialized
     
     def add_document(self, text, doc_id, filename):
         if text and text != "Unsupported file type":
@@ -82,19 +85,18 @@ class SimpleRAG:
     
     def query(self, question):
         if not self.is_ready():
-            return "System not ready - check API key status."
+            return "System not ready - please check API key configuration in the sidebar."
         
         current_text = self.get_current_document()
         if not current_text:
             return "Please upload and select a document first."
             
         try:
-            with st.spinner("Thinking..."):
-                # Build conversation context
-                conversation_history = self.get_conversation_history()
-                
-                # IMPROVED PROMPT ENGINEERING
-                system_prompt = """You are a helpful study assistant. Follow these rules strictly:
+            # Build conversation context
+            conversation_history = self.get_conversation_history()
+            
+            # IMPROVED PROMPT ENGINEERING
+            system_prompt = """You are a helpful study assistant. Follow these rules strictly:
 
 1. If the user asks a question that can be answered using the provided context, answer based ONLY on that context
 2. If the question cannot be answered from the context, say "I cannot find that information in the provided documents"
@@ -103,32 +105,32 @@ class SimpleRAG:
 5. If you're asked to write code but no coding examples exist in the context, decline politely
 
 Context:"""
-                
-                # Only include document context for substantive questions
-                user_message = f"{question}"
-                
-                messages = [
-                    {"role": "system", "content": system_prompt + f"\n{current_text}"},
-                ]
-                
-                # Add recent conversation history for context
-                if conversation_history:
-                    for conv in conversation_history[-4:]:  # Last 4 exchanges
-                        messages.append({"role": "user", "content": conv['question']})
-                        messages.append({"role": "assistant", "content": conv['answer']})
-                
-                messages.append({"role": "user", "content": user_message})
-                
-                response = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=messages,
-                    max_tokens=500,
-                    temperature=0.1
-                )
-                
-                answer = response.choices[0].message.content
-                self.add_to_conversation(question, answer)
-                
-                return answer
+            
+            # Only include document context for substantive questions
+            user_message = f"{question}"
+            
+            messages = [
+                {"role": "system", "content": system_prompt + f"\n{current_text}"},
+            ]
+            
+            # Add recent conversation history for context
+            if conversation_history:
+                for conv in conversation_history[-4:]:  # Last 4 exchanges
+                    messages.append({"role": "user", "content": conv['question']})
+                    messages.append({"role": "assistant", "content": conv['answer']})
+            
+            messages.append({"role": "user", "content": user_message})
+            
+            response = self.client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                max_tokens=500,
+                temperature=0.1
+            )
+            
+            answer = response.choices[0].message.content
+            self.add_to_conversation(question, answer)
+            
+            return answer
         except Exception as e:
             return f"Error: {str(e)}"
