@@ -50,10 +50,11 @@ class FileProcessor:
 # RAG System Class
 class SimpleRAG:
     def __init__(self):
-        self.documents = {}  # Initialize documents first
+        self.documents = {}
         self.current_doc_id = None
         self.client = None
         self.model_name = None
+        self.conversations = {}  # Store conversations per document
         
         if 'GROQ_API_KEY' in st.secrets:
             api_key = st.secrets['GROQ_API_KEY']
@@ -92,6 +93,10 @@ class SimpleRAG:
                 'filename': filename,
                 'processed': True
             }
+            # Initialize conversation history for this document
+            if doc_id not in self.conversations:
+                self.conversations[doc_id] = []
+            
             if self.current_doc_id is None:
                 self.current_doc_id = doc_id
     
@@ -102,6 +107,8 @@ class SimpleRAG:
     def delete_document(self, doc_id):
         if doc_id in self.documents:
             del self.documents[doc_id]
+            if doc_id in self.conversations:
+                del self.conversations[doc_id]
             if self.current_doc_id == doc_id:
                 self.current_doc_id = list(self.documents.keys())[0] if self.documents else None
     
@@ -109,6 +116,25 @@ class SimpleRAG:
         if self.current_doc_id and self.current_doc_id in self.documents:
             return self.documents[self.current_doc_id]['text']
         return None
+    
+    def get_conversation_history(self):
+        if self.current_doc_id and self.current_doc_id in self.conversations:
+            return self.conversations[self.current_doc_id]
+        return []
+    
+    def add_to_conversation(self, question, answer):
+        if self.current_doc_id:
+            if self.current_doc_id not in self.conversations:
+                self.conversations[self.current_doc_id] = []
+            self.conversations[self.current_doc_id].append({
+                'question': question,
+                'answer': answer,
+                'timestamp': st.session_state.get('conversation_count', 0)
+            })
+    
+    def clear_conversation(self):
+        if self.current_doc_id and self.current_doc_id in self.conversations:
+            self.conversations[self.current_doc_id] = []
     
     def query(self, question):
         if not self.is_ready():
@@ -120,9 +146,18 @@ class SimpleRAG:
             
         try:
             with st.spinner("Finding answer..."):
+                # Build conversation context
+                conversation_history = self.get_conversation_history()
+                history_context = ""
+                if conversation_history:
+                    history_context = "\n\nPrevious questions and answers:\n"
+                    for i, conv in enumerate(conversation_history[-3:]):  # Last 3 exchanges
+                        history_context += f"Q: {conv['question']}\nA: {conv['answer']}\n\n"
+                
                 prompt = f"""Based ONLY on the following context:
 
 {current_text}
+{history_context}
 
 Question: {question}
 
@@ -134,7 +169,12 @@ Answer based only on the context above:"""
                     max_tokens=500,
                     temperature=0.1
                 )
-                return f"**Answer:** {response.choices[0].message.content}"
+                
+                answer = response.choices[0].message.content
+                # Store in conversation history
+                self.add_to_conversation(question, answer)
+                
+                return f"**Answer:** {answer}"
         except Exception as e:
             return f"Error: {str(e)}"
 
@@ -149,6 +189,10 @@ if 'rag' not in st.session_state:
     st.session_state.rag = SimpleRAG()
 
 rag = st.session_state.rag
+
+# Initialize conversation counter
+if 'conversation_count' not in st.session_state:
+    st.session_state.conversation_count = 0
 
 # MULTIPLE FILE UPLOAD
 uploaded_files = st.file_uploader(
@@ -175,7 +219,7 @@ if uploaded_files:
                 else:
                     st.error(f"❌ Could not process {uploaded_file.name}")
 
-# FILE MANAGEMENT DASHBOARD - Only show if system is ready and has documents
+# FILE MANAGEMENT DASHBOARD
 if rag.is_ready() and rag.documents:
     st.divider()
     st.subheader("Your Documents")
@@ -195,22 +239,46 @@ if rag.is_ready() and rag.documents:
         current_doc = rag.documents[selected_doc]
         st.info(f"📄 Currently viewing: {current_doc['filename']}")
         
-        # Delete button
-        if st.button("Delete this document", key=f"delete_{selected_doc}"):
-            rag.delete_document(selected_doc)
-            st.rerun()
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear Conversation", key="clear_conv"):
+                rag.clear_conversation()
+                st.rerun()
+        with col2:
+            if st.button("🗑️ Delete Document", key=f"delete_{selected_doc}"):
+                rag.delete_document(selected_doc)
+                st.rerun()
 
-# Q&A SECTION - Only show if system is ready and has a document selected
+# CONVERSATION HISTORY - Show previous Q&A
+if rag.is_ready() and rag.get_current_document():
+    conversation_history = rag.get_conversation_history()
+    if conversation_history:
+        st.divider()
+        st.subheader("Conversation History")
+        
+        for i, conv in enumerate(conversation_history):
+            with st.expander(f"Q: {conv['question'][:50]}...", expanded=(i == len(conversation_history)-1)):
+                st.markdown(f"**Question:** {conv['question']}")
+                st.markdown(f"**Answer:** {conv['answer']}")
+
+# Q&A SECTION
 if rag.is_ready() and rag.get_current_document():
     st.divider()
     st.subheader("Ask Questions")
     
-    question = st.text_input("What would you like to know about your document?")
+    question = st.text_input("What would you like to know about your document?", key="question_input")
     
     if question:
+        st.session_state.conversation_count += 1
         answer = rag.query(question)
-        st.markdown("### Answer:")
+        
+        # Display the latest answer prominently
+        st.markdown("### Latest Answer")
         st.write(answer)
+        
+        # Auto-refresh to show in conversation history
+        st.rerun()
+        
 elif rag.is_ready() and not rag.documents:
     st.info("📁 Upload some documents to get started!")
 elif not rag.is_ready():
@@ -221,13 +289,13 @@ with st.expander("How to use Cram AI"):
     st.markdown("""
     1. **Upload** multiple PDFs, PowerPoints, or images
     2. **Select** which document to query
-    3. **Ask questions** about your specific content
-    4. **Manage** your uploaded files
+    3. **Ask questions** and see conversation history
+    4. **Continue conversations** with follow-up questions
     
     **Supported formats:** PDF, PowerPoint, Images
     """)
 
-# Basic analytics (for you)
+# Basic analytics
 with st.expander("Developer Info"):
     st.write(f"📊 Documents loaded: {len(rag.documents)}")
     if rag.documents:
@@ -236,4 +304,4 @@ with st.expander("Developer Info"):
             ext = doc['filename'].split('.')[-1].lower()
             file_types[ext] = file_types.get(ext, 0) + 1
         st.write(f"📁 File types: {file_types}")
-    st.write(f"🔧 System ready: {rag.is_ready()}")
+    st.write(f"💬 Total conversations: {st.session_state.conversation_count}")
