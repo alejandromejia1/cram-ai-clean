@@ -11,15 +11,14 @@ rag = st.session_state.rag
 
 # Main App
 st.set_page_config(
-    page_title="Cram",
+    page_title="Cram AI",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# Clean, professional CSS - no emojis, no Streamlit defaults
+# Compact, professional CSS
 st.markdown("""
 <style>
-    /* Reset everything */
     .main {
         padding: 0 !important;
     }
@@ -30,131 +29,107 @@ st.markdown("""
     
     /* Header */
     .app-header {
-        padding: 3rem 0 2rem 0;
+        padding: 2rem 0 1rem 0;
         text-align: center;
-        border-bottom: 1px solid #f0f0f0;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
     }
     
     .app-title {
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 700;
         color: #000000;
-        margin: 0 0 0.5rem 0;
+        margin: 0;
         letter-spacing: -0.02em;
     }
     
     .app-subtitle {
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         color: #666666;
-        margin: 0;
+        margin: 0.5rem 0 0 0;
         font-weight: 400;
     }
     
     /* Main content */
     .main-content {
-        max-width: 800px;
+        max-width: 700px;
         margin: 0 auto;
-        padding: 0 2rem;
+        padding: 0 1.5rem;
     }
     
     /* Upload section */
     .upload-section {
         background: #f8f9fa;
-        border-radius: 16px;
-        padding: 3rem;
-        margin: 2rem 0;
-        text-align: center;
-    }
-    
-    .upload-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #000000;
-        margin: 0 0 1rem 0;
-    }
-    
-    .upload-description {
-        color: #666666;
-        margin: 0 0 2rem 0;
-        line-height: 1.5;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
     }
     
     .upload-area {
         border: 2px dashed #d1d5db;
-        border-radius: 12px;
-        padding: 3rem 2rem;
+        border-radius: 8px;
+        padding: 1.5rem;
         background: #ffffff;
+        text-align: center;
         transition: all 0.2s ease;
-        cursor: pointer;
     }
     
     .upload-area:hover {
         border-color: #000000;
-        background: #fafafa;
     }
     
     .upload-area-title {
-        font-size: 1.1rem;
+        font-size: 1rem;
         font-weight: 600;
         color: #000000;
-        margin: 0 0 0.5rem 0;
+        margin: 0 0 0.25rem 0;
     }
     
     .upload-area-subtitle {
         color: #666666;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         margin: 0;
     }
     
     /* Chat interface */
     .chat-container {
-        background: #ffffff;
-        border-radius: 16px;
-        padding: 2rem;
-        margin: 2rem 0;
+        margin: 1rem 0;
     }
     
     .message {
-        padding: 1.2rem 1.5rem;
-        margin: 1rem 0;
-        border-radius: 12px;
-        line-height: 1.6;
+        padding: 0.75rem 1rem;
+        margin: 0.5rem 0;
+        border-radius: 8px;
+        line-height: 1.5;
         max-width: 80%;
-        font-size: 1rem;
+        font-size: 0.95rem;
     }
     
     .user-message {
         background: #000000;
         color: #ffffff;
         margin-left: auto;
-        border-bottom-right-radius: 4px;
+        border-bottom-right-radius: 2px;
     }
     
     .assistant-message {
         background: #f8f9fa;
         color: #333333;
         border: 1px solid #e9ecef;
-        border-bottom-left-radius: 4px;
+        border-bottom-left-radius: 2px;
     }
     
     .welcome-state {
         text-align: center;
-        padding: 4rem 2rem;
-    }
-    
-    .welcome-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #000000;
-        margin: 0 0 1rem 0;
-    }
-    
-    .welcome-description {
+        padding: 1.5rem;
         color: #666666;
-        font-size: 1.1rem;
-        line-height: 1.6;
-        margin: 0;
+    }
+    
+    /* Controls */
+    .controls {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        align-items: center;
     }
     
     /* Hide all Streamlit elements */
@@ -164,9 +139,8 @@ st.markdown("""
     header {visibility: hidden;}
     .stChatInput {
         border: 1px solid #e9ecef !important;
-        border-radius: 24px !important;
-        padding: 1rem 1.5rem !important;
-        font-size: 1rem !important;
+        border-radius: 20px !important;
+        padding: 0.75rem 1rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -174,8 +148,8 @@ st.markdown("""
 # Header
 st.markdown("""
 <div class="app-header">
-    <h1 class="app-title">Cram</h1>
-    <p class="app-subtitle">Upload documents. Ask questions. Get answers.</p>
+    <h1 class="app-title">Cram AI</h1>
+    <p class="app-subtitle">Upload documents and ask questions</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -185,11 +159,9 @@ st.markdown('<div class="main-content">', unsafe_allow_html=True)
 # Upload section
 st.markdown("""
 <div class="upload-section">
-    <h2 class="upload-title">Add your study materials</h2>
-    <p class="upload-description">Upload PDFs, PowerPoint presentations, or images to start asking questions about your content.</p>
     <div class="upload-area">
-        <div class="upload-area-title">Drop files here or click to browse</div>
-        <div class="upload-area-subtitle">Supports PDF, PPTX, PNG, JPG, JPEG • Max 200MB per file</div>
+        <div class="upload-area-title">Add study materials</div>
+        <div class="upload-area-subtitle">PDF, PowerPoint, or images</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -208,7 +180,7 @@ if uploaded_files:
         file_exists = hasattr(rag, 'documents') and any(doc['filename'] == uploaded_file.name for doc in rag.documents.values())
         
         if not file_exists:
-            with st.spinner(f"Processing {uploaded_file.name}..."):
+            with st.spinner(f"Adding {uploaded_file.name}..."):
                 text = FileProcessor.process_file(uploaded_file)
                 
                 if text != "Unsupported file type" and len(text.strip()) > 0:
@@ -231,13 +203,12 @@ if hasattr(rag, 'documents') and rag.documents:
     else:
         st.markdown("""
         <div class="welcome-state">
-            <h2 class="welcome-title">Ready to explore your documents</h2>
-            <p class="welcome-description">Ask questions about your uploaded materials and receive answers based on the content.</p>
+            Your documents are ready. Ask a question to get started.
         </div>
         """, unsafe_allow_html=True)
     
     # Chat input
-    if prompt := st.chat_input("Ask a question about your documents..."):
+    if prompt := st.chat_input("Ask a question..."):
         response = rag.query(prompt)
         st.rerun()
     
@@ -245,34 +216,32 @@ if hasattr(rag, 'documents') and rag.documents:
     
     # Document management
     if rag.documents:
-        st.markdown("---")
-        col1, col2, col3 = st.columns([2, 1, 1])
+        st.markdown('<div class="controls">', unsafe_allow_html=True)
         
-        with col1:
-            doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
-            selected_doc = st.selectbox(
-                "Active document",
-                options=list(doc_options.keys()),
-                format_func=lambda x: doc_options[x],
-                index=0
-            )
-            rag.switch_document(selected_doc)
+        doc_options = {doc_id: info['filename'] for doc_id, info in rag.documents.items()}
+        selected_doc = st.selectbox(
+            "Document:",
+            options=list(doc_options.keys()),
+            format_func=lambda x: doc_options[x],
+            index=0,
+            label_visibility="collapsed"
+        )
+        rag.switch_document(selected_doc)
         
-        with col2:
-            if st.button("Clear conversation", use_container_width=True):
-                rag.clear_conversation()
-                st.rerun()
+        if st.button("Clear chat", use_container_width=True):
+            rag.clear_conversation()
+            st.rerun()
         
-        with col3:
-            if st.button("Remove document", use_container_width=True):
-                rag.delete_document(selected_doc)
-                st.rerun()
+        if st.button("Remove", use_container_width=True):
+            rag.delete_document(selected_doc)
+            st.rerun()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.markdown("""
     <div class="welcome-state">
-        <h2 class="welcome-title">Get started with your materials</h2>
-        <p class="welcome-description">Upload your study documents above to begin asking questions and exploring the content.</p>
+        Upload documents to begin
     </div>
     """, unsafe_allow_html=True)
 
