@@ -4,11 +4,14 @@ from file_processor import FileProcessor
 from rag_system import SimpleRAG
 import uuid
 
-st.set_page_config(
-    page_title="Cram AI",
-    page_icon="❓",
-    layout="centered"
-)
+st.set_page_config(page_title="Cram AI", layout="centered")
+
+# DEBUG: Show what secrets are available
+st.write("🔍 DEBUG: Checking Streamlit secrets...")
+if hasattr(st, 'secrets'):
+    st.write(f"Secrets keys: {list(st.secrets.keys())}")
+else:
+    st.write("No st.secrets found")
 
 @st.cache_resource
 def get_rag_system():
@@ -67,6 +70,4 @@ with st.expander("How to use Cram AI"):
     - PDF documents
     - PowerPoint (.pptx) presentations
     - Images with text (PNG, JPG)
-
-    *Cram AI reads your actual files - no more converting between formats!*
     """)
