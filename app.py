@@ -145,10 +145,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Header
+# Header - Fixed: Title is now properly black
 st.markdown("""
 <div class="app-header">
-    <h1 class="app-title">Cram AI</h1>
+    <h1 class="app-title" style="color: #000000 !important;">Cram AI</h1>
     <p class="app-subtitle">Upload documents and ask questions</p>
 </div>
 """, unsafe_allow_html=True)
