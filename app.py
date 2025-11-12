@@ -47,7 +47,7 @@ class FileProcessor:
         else:
             return "Unsupported file type"
 
-# RAG System Class - WITH BETTER DEBUGGING
+# RAG System Class - WITH CURRENT MODEL
 class SimpleRAG:
     def __init__(self):
         st.write("🔍 DEBUG: Checking Streamlit secrets...")
@@ -103,7 +103,7 @@ Question: {question}
 Answer based only on the context above:"""
                 
                 response = self.client.chat.completions.create(
-                    model="llama3-8b-8192",
+                    model="llama-3.1-8b-instant",  # UPDATED: Current Groq model
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=500,
                     temperature=0.1
